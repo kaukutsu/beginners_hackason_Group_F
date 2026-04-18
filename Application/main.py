@@ -1,4 +1,7 @@
 import http.server
+import socketserver
+
+DIRECTORY = "Application"
 
 #HTTPサーバー
 server_address = ('127.0.0.1', 8000)
