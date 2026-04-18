@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> モノの管理 </title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; background: #f5f5f0; }
+:root {
+  --c-teal-50: #E1F5EE; --c-teal-100: #9FE1CB; --c-teal-200: #5DCAA5;
+  --c-teal-600: #0F6E56; --c-teal-800: #085041;
+  --c-purple-50: #EEEDFE; --c-purple-600: #534AB7; --c-purple-800: #3C3489;
+  --c-amber-50: #FAEEDA; --c-amber-600: #854F0B; --c-amber-800: #633806;
+  --c-coral-50: #FAECE7; --c-coral-600: #993C1D; --c-coral-800: #712B13;
+  --c-blue-50: #E6F1FB; --c-blue-600: #185FA5; --c-blue-800: #0C447C;
+  --c-green-50: #EAF3DE; --c-green-600: #3B6D11; --c-green-800: #27500A;
+  --c-gray-100: #D3D1C7; --c-gray-400: #888780;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f5f5f0;
+  --color-background-tertiary: #eeece6;
+  --color-text-primary: #1a1a18;
+  --color-text-secondary: #6b6b67;
+  --color-border-tertiary: rgba(0,0,0,0.12);
+  --color-border-secondary: rgba(0,0,0,0.22);
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+#app {
+  display: flex; flex-direction: column; min-height: 100vh;
+  background: var(--color-background-tertiary);
+}
+
+#topbar {
+  background: var(--color-background-primary);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+}
+#topbar h1 { font-size: 16px; font-weight: 500; color: var(--color-text-primary); flex: 1; }
+#topbar span { font-size: 20px; }
+
+#nav { display: flex; gap: 4px; padding: 0 16px; background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); }
+.nav-btn { padding: 8px 16px; font-size: 13px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--color-text-secondary); cursor: pointer; font-family: sans-serif; transition: all 0.15s; }
+.nav-btn.active { color: var(--c-teal-600); border-bottom-color: var(--c-teal-600); font-weight: 500; }
+.nav-btn:hover:not(.active) { color: var(--color-text-primary); background: var(--color-background-secondary); }
+
+#content { flex: 1; padding: 16px; overflow-y: auto; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-bar input { flex: 1; padding: 8px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); font-size: 14px; background: var(--color-background-primary); color: var(--color-text-primary); font-family: sans-serif; }
+.search-bar input:focus { outline: none; border-color: var(--c-teal-600); box-shadow: 0 0 0 2px rgba(15,110,86,0.1); }
+
+.btn { padding: 8px 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; font-size: 13px; font-family: sans-serif; transition: all 0.15s; white-space: nowrap; }
+.btn:hover { background: var(--color-background-secondary); }
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--c-teal-600); color: white; border-color: var(--c-teal-600); }
+.btn.primary:hover { background: var(--c-teal-800); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+
+.storage-card {
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg); padding: 14px; cursor: pointer;
+  transition: all 0.15s; position: relative;
+}
+.storage-card:hover { border-color: var(--color-border-secondary); transform: translateY(-1px); }
+.storage-card .card-icon { font-size: 28px; margin-bottom: 8px; }
+.storage-card .card-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+.storage-card .card-count { font-size: 12px; color: var(--color-text-secondary); }
+.storage-card .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.tag-teal  { background: var(--c-teal-50);   color: var(--c-teal-800); }
+.tag-purple{ background: var(--c-purple-50);  color: var(--c-purple-800); }
+.tag-amber { background: var(--c-amber-50);   color: var(--c-amber-800); }
+.tag-coral { background: var(--c-coral-50);   color: var(--c-coral-800); }
+.tag-blue  { background: var(--c-blue-50);    color: var(--c-blue-800); }
+.tag-green { background: var(--c-green-50);   color: var(--c-green-800); }
+
+.empty-state { text-align: center; padding: 48px 24px; color: var(--color-text-secondary); }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--color-background-primary); border-radius: var(--border-radius-lg);
+  width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+  border: 0.5px solid var(--color-border-tertiary); margin: 0 16px;
+}
+.modal-header { padding: 16px 20px; border-bottom: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 15px; font-weight: 500; }
+.modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--color-text-secondary); padding: 4px; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 16px 20px; border-top: 0.5px solid var(--color-border-tertiary); display: flex; gap: 8px; justify-content: flex-end; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 8px 12px; border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md); font-size: 14px; font-family: sans-serif;
+  background: var(--color-background-primary); color: var(--color-text-primary);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--c-teal-600); box-shadow: 0 0 0 2px rgba(15,110,86,0.1); }
+.form-group textarea { resize: vertical; min-height: 80px; }
+
+.detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.detail-back { background: none; border: none; cursor: pointer; color: var(--color-text-secondary); font-size: 18px; padding: 4px 8px 4px 0; }
+.detail-back:hover { color: var(--color-text-primary); }
+
+.item-list { display: flex; flex-direction: column; gap: 8px; }
+.item-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+}
+.item-row .item-name { flex: 1; font-size: 14px; color: var(--color-text-primary); }
+.item-row .item-meta { font-size: 12px; color: var(--color-text-secondary); }
+.item-row .item-actions { display: flex; gap: 6px; }
+.icon-btn { background: none; border: none; cursor: pointer; color: var(--color-text-secondary); padding: 4px; border-radius: 4px; font-size: 14px; }
+.icon-btn:hover { color: var(--color-text-primary); background: var(--color-background-secondary); }
+
+.tag-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.tag-filter-btn { padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); cursor: pointer; color: var(--color-text-secondary); transition: all 0.15s; }
+.tag-filter-btn.active { background: var(--c-teal-600); color: white; border-color: var(--c-teal-600); }
+
+.tag-input-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); min-height: 42px; cursor: text; }
+.tag-input-wrap input { border: none; outline: none; font-size: 13px; background: transparent; color: var(--color-text-primary); font-family: sans-serif; min-width: 80px; flex: 1; }
+.tag-removable { display: inline-flex; align-items: center; gap: 4px; }
+.tag-removable button { background: none; border: none; cursor: pointer; font-size: 10px; opacity: 0.6; }
+
+.storage-icon-select { display: flex; flex-wrap: wrap; gap: 8px; }
+.icon-opt { font-size: 22px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); cursor: pointer; transition: all 0.15s; }
+.icon-opt.selected { border-color: var(--c-teal-600); background: var(--c-teal-50); }
+
+.search-results-info { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; }
+.location-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--color-background-secondary); border-radius: 20px; font-size: 12px; color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="topbar">
+    <span>📦</span>
+    <h1>モノの管理</h1>
+    <button class="btn primary" id="addBtn" onclick="handleAdd()">＋ 追加</button>
+  </div>
+  <div id="nav">
+    <button class="nav-btn active" onclick="switchView('shelves', this)">棚・収納</button>
+    <button class="nav-btn" onclick="switchView('search', this)">検索</button>
+    <button class="nav-btn" onclick="switchView('all-items', this)">すべてのモノ</button>
+  </div>
+  <div id="content">
+    <div id="view-shelves" class="view active"></div>
+    <div id="view-search" class="view"></div>
+    <div id="view-all-items" class="view"></div>
+    <div id="view-shelf-detail" class="view"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="storageModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="storageModalTitle">収納場所を追加</h2>
+      <button class="modal-close" onclick="closeModal('storageModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>アイコン</label>
+        <div class="storage-icon-select" id="iconSelect"></div>
+      </div>
+      <div class="form-group">
+        <label>名前</label>
+        <input type="text" id="storageName" placeholder="例: リビング棚、押し入れ上段" />
+      </div>
+      <div class="form-group">
+        <label>番号・メモ</label>
+        <input type="text" id="storageNum" placeholder="例: A-1、2段目左" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('storageModal')">キャンセル</button>
+      <button class="btn primary" onclick="saveStorage()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="itemModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="itemModalTitle">モノを追加</h2>
+      <button class="modal-close" onclick="closeModal('itemModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>モノの名前</label>
+        <input type="text" id="itemName" placeholder="例: 冬用コート、電池（単3）" />
+      </div>
+      <div class="form-group">
+        <label>収納場所</label>
+        <select id="itemStorage"></select>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="itemNote" placeholder="詳細、個数、状態など"></textarea>
+      </div>
+      <div class="form-group">
+        <label>タグ（Enterで追加）</label>
+        <div class="tag-input-wrap" id="tagInputWrap" onclick="document.getElementById('tagInput').focus()">
+          <input type="text" id="tagInput" placeholder="タグを入力..." onkeydown="handleTagKey(event)" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('itemModal')">キャンセル</button>
+      <button class="btn primary" onclick="saveItem()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ICONS = ['📦','🗃️','🗄️','🧺','🚪','🧸','👗','🔧','📚','🍱','🧹','💊'];
+const TAG_COLORS = ['tag-teal','tag-purple','tag-amber','tag-coral','tag-blue','tag-green'];
+
+let state = {
+  storages: [
+    { id: 1, icon: '🗃️', name: 'リビング棚', num: 'A-1' },
+    { id: 2, icon: '📦', name: '押し入れ上段', num: 'B-1' },
+    { id: 3, icon: '👗', name: 'クローゼット', num: 'C-1' },
+  ],
+  items: [
+    { id: 1, name: '冬用コート', storageId: 3, note: 'グレー色', tags: ['衣類','冬'], createdAt: Date.now() },
+    { id: 2, name: '電池（単3）', storageId: 1, note: '予備10本', tags: ['電気','消耗品'], createdAt: Date.now() },
+    { id: 3, name: '工具セット', storageId: 2, note: 'ドライバー等', tags: ['工具','DIY'], createdAt: Date.now() },
+    { id: 4, name: '季節の飾り', storageId: 2, note: 'クリスマス用', tags: ['季節','インテリア'], createdAt: Date.now() },
+    { id: 5, name: 'お薬セット', storageId: 1, note: '常備薬一式', tags: ['医療','常備'], createdAt: Date.now() },
+  ],
+  nextStorageId: 4, nextItemId: 6,
+  editingStorageId: null, editingItemId: null,
+  currentShelfId: null, currentView: 'shelves',
+  pendingTags: [], selectedIcon: '📦',
+};
+
+function tagColor(tag) {
+  let h = 0;
+  for (let c of tag) h = (h * 31 + c.charCodeAt(0)) & 0xff;
+  return TAG_COLORS[h % TAG_COLORS.length];
+}
+
+function renderTag(t, removable) {
+  const cls = tagColor(t);
+  if (removable) {
+    return `<span class="tag ${cls} tag-removable">${t}<button type="button" onclick="removeTag('${t}')">✕</button></span>`;
+  }
+  return `<span class="tag ${cls}">${t}</span>`;
+}
+
+function switchView(v, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ['shelves','search','all-items','shelf-detail'].forEach(n =>
+    document.getElementById('view-' + n).classList.remove('active')
+  );
+  state.currentView = v;
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('addBtn').style.display = v === 'shelf-detail' ? 'none' : '';
+  if (v === 'shelves') renderShelves();
+  if (v === 'search') renderSearch();
+  if (v === 'all-items') renderAllItems();
+}
+
+function renderShelves() {
+  const el = document.getElementById('view-shelves');
+  if (!state.storages.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📦</div><p>収納場所がまだありません<br>「＋ 追加」から棚やケースを登録してください</p></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="grid">${state.storages.map(s => {
+    const items = state.items.filter(i => i.storageId === s.id);
+    const allTags = [...new Set(items.flatMap(i => i.tags))].slice(0, 4);
+    return `<div class="storage-card" onclick="openShelf(${s.id})">
+      <div class="card-icon">${s.icon}</div>
+      <div class="card-name">${s.name}</div>
+      ${s.num ? `<div class="card-count" style="margin-bottom:4px">${s.num}</div>` : ''}
+      <div class="card-count">${items.length}点</div>
+      <div class="card-tags">${allTags.map(t => renderTag(t)).join('')}</div>
+      <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px">
+        <button class="icon-btn" onclick="event.stopPropagation();editStorage(${s.id})">✏️</button>
+        <button class="icon-btn" onclick="event.stopPropagation();deleteStorage(${s.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function openShelf(id) {
+  state.currentShelfId = id;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  ['shelves','search','all-items','shelf-detail'].forEach(n =>
+    document.getElementById('view-' + n).classList.remove('active')
+  );
+  document.getElementById('view-shelf-detail').classList.add('active');
+  document.getElementById('addBtn').style.display = 'none';
+  state.currentView = 'shelf-detail';
+  renderShelfDetail();
+}
+
+function renderShelfDetail() {
+  const s = state.storages.find(x => x.id === state.currentShelfId);
+  if (!s) return;
+  const items = state.items.filter(i => i.storageId === s.id);
+  const el = document.getElementById('view-shelf-detail');
+  el.innerHTML = `
+    <div class="detail-header">
+      <button class="detail-back" onclick="switchView('shelves', null); document.querySelectorAll('.nav-btn')[0].classList.add('active')">←</button>
+      <span style="font-size:24px">${s.icon}</span>
+      <div>
+        <div style="font-size:15px;font-weight:500;color:var(--color-text-primary)">${s.name}</div>
+        ${s.num ? `<div style="font-size:12px;color:var(--color-text-secondary)">${s.num}</div>` : ''}
+      </div>
+      <button class="btn primary" style="margin-left:auto" onclick="openItemModal(null, ${s.id})">＋ モノを追加</button>
+    </div>
+    ${items.length === 0
+      ? `<div class="empty-state"><div class="icon">🔍</div><p>この収納場所にはまだモノが登録されていません</p></div>`
+      : `<div class="item-list">${items.map(item => `
+          <div class="item-row">
+            <div style="flex:1">
+              <div class="item-name">${item.name}</div>
+              ${item.note ? `<div class="item-meta">${item.note}</div>` : ''}
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${item.tags.map(t => renderTag(t)).join('')}</div>
+            </div>
+            <div class="item-actions">
+              <button class="icon-btn" onclick="editItem(${item.id})">✏️</button>
+              <button class="icon-btn" onclick="deleteItem(${item.id})">🗑️</button>
+            </div>
+          </div>`).join('')}</div>`
+    }`;
+}
+
+let activeTagFilters = new Set();
+
+function renderSearch() {
+  const el = document.getElementById('view-search');
+  const allTags = [...new Set(state.items.flatMap(i => i.tags))];
+  el.innerHTML = `
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="名前・タグで検索..." oninput="doSearch()" />
+    </div>
+    <div class="tag-filter" id="tagFilter">
+      ${allTags.map(t => `<button class="tag-filter-btn" onclick="toggleTagFilter('${t}', this)">${t}</button>`).join('')}
+    </div>
+    <div id="searchResults"></div>`;
+  doSearch();
+}
+
+function toggleTagFilter(tag, btn) {
+  if (activeTagFilters.has(tag)) {
+    activeTagFilters.delete(tag);
+    btn.classList.remove('active');
+  } else {
+    activeTagFilters.add(tag);
+    btn.classList.add('active');
+  }
+  doSearch();
+}
+
+function doSearch() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const results = state.items.filter(item => {
+    const matchQ = !q || item.name.toLowerCase().includes(q)
+      || item.tags.some(t => t.toLowerCase().includes(q))
+      || item.note?.toLowerCase().includes(q);
+    const matchTag = activeTagFilters.size === 0
+      || [...activeTagFilters].every(t => item.tags.includes(t));
+    return matchQ && matchTag;
+  });
+  const el = document.getElementById('searchResults');
+  if (!el) return;
+  el.innerHTML = `<div class="search-results-info">${results.length}件見つかりました</div>` +
+    (results.length === 0
+      ? `<div class="empty-state"><div class="icon">🔍</div><p>該当するモノが見つかりません</p></div>`
+      : `<div class="item-list">${results.map(item => {
+          const s = state.storages.find(x => x.id === item.storageId);
+          return `<div class="item-row">
+            <div style="flex:1">
+              <div class="item-name">${item.name}</div>
+              ${s ? `<span class="location-badge">${s.icon} ${s.name}${s.num ? ' · ' + s.num : ''}</span>` : ''}
+              ${item.note ? `<div class="item-meta" style="margin-top:4px">${item.note}</div>` : ''}
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${item.tags.map(t => renderTag(t)).join('')}</div>
+            </div>
+            <div class="item-actions">
+              <button class="icon-btn" onclick="editItem(${item.id})">✏️</button>
+              <button class="icon-btn" onclick="deleteItem(${item.id})">🗑️</button>
+            </div>
+          </div>`;
+        }).join('')}</div>`
+    );
+}
+
+function renderAllItems() {
+  const el = document.getElementById('view-all-items');
+  el.innerHTML = `<div class="item-list">${state.items.map(item => {
+    const s = state.storages.find(x => x.id === item.storageId);
+    return `<div class="item-row">
+      <div style="flex:1">
+        <div class="item-name">${item.name}</div>
+        ${s ? `<span class="location-badge">${s.icon} ${s.name}${s.num ? ' · ' + s.num : ''}</span>` : ''}
+        ${item.note ? `<div class="item-meta" style="margin-top:4px">${item.note}</div>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${item.tags.map(t => renderTag(t)).join('')}</div>
+      </div>
+      <div class="item-actions">
+        <button class="icon-btn" onclick="editItem(${item.id})">✏️</button>
+        <button class="icon-btn" onclick="deleteItem(${item.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function handleAdd() {
+  if (state.currentView === 'shelves' || state.currentView === 'all-items') openStorageModal();
+  else openItemModal(null, null);
+}
+
+function openStorageModal(id) {
+  state.editingStorageId = id || null;
+  const s = id ? state.storages.find(x => x.id === id) : null;
+  document.getElementById('storageModalTitle').textContent = id ? '収納場所を編集' : '収納場所を追加';
+  document.getElementById('storageName').value = s?.name || '';
+  document.getElementById('storageNum').value = s?.num || '';
+  state.selectedIcon = s?.icon || '📦';
+  document.getElementById('iconSelect').innerHTML = ICONS.map(ic =>
+    `<div class="icon-opt${ic === state.selectedIcon ? ' selected' : ''}" onclick="selectIcon('${ic}', this)">${ic}</div>`
+  ).join('');
+  document.getElementById('storageModal').classList.add('open');
+}
+
+function selectIcon(ic, el) {
+  state.selectedIcon = ic;
+  document.querySelectorAll('.icon-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function editStorage(id) { openStorageModal(id); }
+
+function deleteStorage(id) {
+  if (!confirm('この収納場所を削除しますか？（中のモノも削除されます）')) return;
+  state.storages = state.storages.filter(s => s.id !== id);
+  state.items = state.items.filter(i => i.storageId !== id);
+  renderShelves();
+}
+
+function saveStorage() {
+  const name = document.getElementById('storageName').value.trim();
+  if (!name) {
+    alert('名前を入力してください');
+    return;
+  }
+  const num = document.getElementById('storageNum').value.trim();
+  if (state.editingStorageId) {
+    const s = state.storages.find(x => x.id === state.editingStorageId);
+    Object.assign(s, { name, num, icon: state.selectedIcon });
+  } else {
+    state.storages.push({ id: state.nextStorageId++, icon: state.selectedIcon, name, num });
+  }
+  closeModal('storageModal');
+  renderShelves();
+}
+
+function openItemModal(id, defaultStorageId) {
+  state.editingItemId = id || null;
+  state.pendingTags = [];
+  const item = id ? state.items.find(x => x.id === id) : null;
+  if (item) state.pendingTags = [...item.tags];
+  document.getElementById('itemModalTitle').textContent = id ? 'モノを編集' : 'モノを追加';
+  document.getElementById('itemName').value = item?.name || '';
+  document.getElementById('itemNote').value = item?.note || '';
+  const sel = document.getElementById('itemStorage');
+  sel.innerHTML = state.storages.map(s =>
+    `<option value="${s.id}" ${(item?.storageId || defaultStorageId) === s.id ? 'selected' : ''}>${s.icon} ${s.name}${s.num ? ' (' + s.num + ')' : ''}</option>`
+  ).join('');
+  renderTagInput();
+  document.getElementById('itemModal').classList.add('open');
+}
+
+function renderTagInput() {
+  const wrap = document.getElementById('tagInputWrap');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'tagInput';
+  input.placeholder = 'タグを入力...';
+  input.onkeydown = handleTagKey;
+  wrap.innerHTML = state.pendingTags.map(t => renderTag(t, true)).join('');
+  wrap.appendChild(input);
+}
+
+function handleTagKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const v = e.target.value.trim().replace(/,/g, '');
+    if (v && !state.pendingTags.includes(v)) {
+      state.pendingTags.push(v);
+      renderTagInput();
+    } else {
+      e.target.value = '';
+    }
+  }
+}
+
+function removeTag(t) {
+  state.pendingTags = state.pendingTags.filter(x => x !== t);
+  renderTagInput();
+}
+
+function editItem(id) { openItemModal(id, null); }
+
+function deleteItem(id) {
+  if (!confirm('このモノを削除しますか？')) return;
+  state.items = state.items.filter(i => i.id !== id);
+  if (state.currentView === 'shelf-detail') renderShelfDetail();
+  else if (state.currentView === 'all-items') renderAllItems();
+  else doSearch();
+}
+
+function saveItem() {
+  const name = document.getElementById('itemName').value.trim();
+  if (!name) {
+    alert('名前を入力してください');
+    return;
+  }
+  const storageId = parseInt(document.getElementById('itemStorage').value);
+  const note = document.getElementById('itemNote').value.trim();
+  const extra = document.getElementById('tagInput')?.value.trim();
+  if (extra && !state.pendingTags.includes(extra)) state.pendingTags.push(extra);
+  if (state.editingItemId) {
+    const item = state.items.find(x => x.id === state.editingItemId);
+    Object.assign(item, { name, storageId, note, tags: state.pendingTags });
+  } else {
+    state.items.push({ id: state.nextItemId++, name, storageId, note, tags: state.pendingTags, createdAt: Date.now() });
+  }
+  closeModal('itemModal');
+  activeTagFilters = new Set();
+  if (state.currentView === 'shelf-detail') renderShelfDetail();
+  else if (state.currentView === 'all-items') renderAllItems();
+  else if (state.currentView === 'search') doSearch();
+  else renderShelves();
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
+);
+
+renderShelves();
+</script>
+</body>
+</html>
