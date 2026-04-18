@@ -9,7 +9,11 @@
 <body>
 
 <div id="app">
-  <div id="topbar"><span>📦</span><h1>モノの管理</h1><button class="btn primary" id="addBtn" onclick="handleAdd()">＋ 追加</button></div>
+  <div id="topbar">
+    <span>📦</span>
+    <h1>モノの管理</h1>
+    <button class="btn primary" id="addBtn" onclick="handleAdd()">＋ 追加</button>
+  </div>
   <div id="nav">
     <button class="nav-btn active" onclick="switchView('shelves', this)">棚・収納</button>
     <button class="nav-btn" onclick="switchView('search', this)">検索</button>
@@ -25,59 +29,333 @@
 
 <div class="modal-overlay" id="storageModal">
   <div class="modal">
-    <div class="modal-header"><h2>収納場所</h2><button class="btn" onclick="closeModal('storageModal')">✕</button></div>
-    <div class="modal-body">
-      <div class="form-group"><label>名前</label><input type="text" id="storageName" /></div>
-      <div class="form-group"><label>メモ</label><input type="text" id="storageNum" /></div>
+    <div class="modal-header">
+      <h2 id="storageModalTitle">収納場所を追加</h2>
+      <button class="modal-close" onclick="closeModal('storageModal')">✕</button>
     </div>
-    <div class="modal-footer"><button class="btn primary" onclick="saveStorage()">保存</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>アイコン</label>
+        <div class="storage-icon-select" id="iconSelect" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;"></div>
+      </div>
+      <div class="form-group">
+        <label>名前</label>
+        <input type="text" id="storageName" placeholder="例: リビング棚、押し入れ上段" />
+      </div>
+      <div class="form-group">
+        <label>番号・メモ</label>
+        <input type="text" id="storageNum" placeholder="例: A-1、2段目左" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('storageModal')">キャンセル</button>
+      <button class="btn primary" onclick="saveStorage()">保存</button>
+    </div>
   </div>
 </div>
 
 <div class="modal-overlay" id="itemModal">
   <div class="modal">
-    <div class="modal-header"><h2 id="itemModalTitle">モノを追加</h2><button class="modal-close" onclick="closeModal('itemModal')">✕</button></div>
+    <div class="modal-header">
+      <h2 id="itemModalTitle">モノを追加</h2>
+      <button class="modal-close" onclick="closeModal('itemModal')">✕</button>
+    </div>
     <div class="modal-body">
-      <div class="form-group"><label>モノの名前</label><input type="text" id="itemName" /></div>
-      <div class="form-group"><label>収納場所</label><select id="itemStorage"></select></div>
-      <div class="form-group"><label>メモ</label><textarea id="itemNote"></textarea></div>
+      <div class="form-group">
+        <label>モノの名前</label>
+        <input type="text" id="itemName" placeholder="例: 冬用コート、電池（単3）" />
+      </div>
+      <div class="form-group">
+        <label>収納場所</label>
+        <select id="itemStorage"></select>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="itemNote" placeholder="詳細、個数、状態など"></textarea>
+      </div>
       <div class="form-group">
         <label>画像</label>
         <input type="file" id="itemImageFile" accept="image/*" onchange="previewImage(this)" />
         <div class="preview-area"><img id="imgPreview" class="preview-img" src="" alt="プレビュー" /></div>
       </div>
-      <div class="form-group"><label>タグ（Enterで追加）</label>
+      <div class="form-group">
+        <label>タグ（Enterで追加）</label>
         <div class="tag-input-wrap" id="tagInputWrap" onclick="document.getElementById('tagInput').focus()">
-          <input type="text" id="tagInput" onkeydown="handleTagKey(event)" />
+          <input type="text" id="tagInput" placeholder="タグを入力..." onkeydown="handleTagKey(event)" />
         </div>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('itemModal')">キャンセル</button><button class="btn primary" onclick="saveItem()">保存</button></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('itemModal')">キャンセル</button>
+      <button class="btn primary" onclick="saveItem()">保存</button>
+    </div>
   </div>
 </div>
 
 <script>
+const ICONS = ['📦','🗃️','🗄️','🧺','🚪','🧸','👗','🔧','📚','🍱','🧹','💊'];
 const TAG_COLORS = ['tag-teal','tag-purple','tag-amber','tag-coral','tag-blue','tag-green'];
-let currentImageData = null; // 画像データを一時保持する変数
+
+let currentImageData = null; // 画像データ保持用
+let activeTagFilters = new Set(); // 検索のタグ絞り込み用
 
 let state = {
   storages: [
     { id: 1, icon: '🗃️', name: 'リビング棚', num: 'A-1' },
-    { id: 2, icon: '📦', name: '押し入れ上段', num: 'B-1' }
+    { id: 2, icon: '📦', name: '押し入れ上段', num: 'B-1' },
+    { id: 3, icon: '👗', name: 'クローゼット', num: 'C-1' },
   ],
   items: [
-    { id: 1, name: '冬用コート', storageId: 2, note: 'グレー色', tags: ['衣類'], image: null, createdAt: Date.now() }
+    { id: 1, name: '冬用コート', storageId: 3, note: 'グレー色', tags: ['衣類','冬'], image: null, createdAt: Date.now() },
+    { id: 2, name: '電池（単3）', storageId: 1, note: '予備10本', tags: ['電気','消耗品'], image: null, createdAt: Date.now() },
+    { id: 3, name: '工具セット', storageId: 2, note: 'ドライバー等', tags: ['工具','DIY'], image: null, createdAt: Date.now() },
   ],
-  nextStorageId: 3, nextItemId: 2,
-  currentView: 'shelves', pendingTags: []
+  nextStorageId: 4, nextItemId: 4,
+  editingStorageId: null, editingItemId: null,
+  currentShelfId: null, currentView: 'shelves',
+  pendingTags: [], selectedIcon: '📦',
 };
 
 function tagColor(tag) {
-  let h = 0; for (let c of tag) h = (h * 31 + c.charCodeAt(0)) & 0xff;
+  let h = 0;
+  for (let c of tag) h = (h * 31 + c.charCodeAt(0)) & 0xff;
   return TAG_COLORS[h % TAG_COLORS.length];
 }
 
-function renderTag(t) { return `<span class="tag ${tagColor(t)}">${t}</span>`; }
+function renderTag(t, removable) {
+  const cls = tagColor(t);
+  if (removable) {
+    return `<span class="tag ${cls} tag-removable" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:11px; margin-top:4px;">${t}<button type="button" onclick="removeTag('${t}')" style="background:none; border:none; cursor:pointer; opacity:0.6;">✕</button></span>`;
+  }
+  return `<span class="tag ${cls}" style="display:inline-flex; padding:2px 8px; border-radius:20px; font-size:11px; margin-top:4px; margin-right:4px;">${t}</span>`;
+}
+
+// アイテムの1行分を生成する共通関数（画像対応）
+function createItemRowHtml(item, showLocation) {
+  const s = state.storages.find(x => x.id === item.storageId);
+  const imgHtml = item.image 
+    ? `<img src="${item.image}" class="item-img-thumb" style="width:48px; height:48px; object-fit:cover; border-radius:4px;" />` 
+    : `<div class="item-img-thumb" style="width:48px; height:48px; background:#eee; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:20px;">${s ? s.icon : '📦'}</div>`;
+
+  const locationHtml = (showLocation && s) ? `<span class="location-badge" style="display:inline-flex; align-items:center; padding:2px 8px; background:var(--color-background-secondary); border-radius:20px; font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;">${s.icon} ${s.name}${s.num ? ' · ' + s.num : ''}</span><br>` : '';
+
+  return `
+    <div class="item-row" style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:8px; margin-bottom:8px;">
+      ${imgHtml}
+      <div style="flex:1">
+        <div class="item-name" style="font-size:14px; font-weight:500;">${item.name}</div>
+        ${locationHtml}
+        ${item.note ? `<div class="item-meta" style="font-size:12px; color:var(--color-text-secondary);">${item.note}</div>` : ''}
+        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:2px;">${item.tags.map(t => renderTag(t)).join('')}</div>
+      </div>
+      <div class="item-actions" style="display:flex; gap:6px;">
+        <button class="icon-btn" onclick="editItem(${item.id})" style="background:none; border:none; cursor:pointer; font-size:16px;">✏️</button>
+        <button class="icon-btn" onclick="deleteItem(${item.id})" style="background:none; border:none; cursor:pointer; font-size:16px;">🗑️</button>
+      </div>
+    </div>`;
+}
+
+// 画面切り替え
+function switchView(v, btn) {
+  if (btn) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  ['shelves','search','all-items','shelf-detail'].forEach(n =>
+    document.getElementById('view-' + n).classList.remove('active')
+  );
+  state.currentView = v;
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('addBtn').style.display = v === 'shelf-detail' ? 'none' : '';
+  
+  if (v === 'shelves') renderShelves();
+  if (v === 'search') renderSearch();
+  if (v === 'all-items') renderAllItems();
+}
+
+/* --- 棚・収納ビュー --- */
+function renderShelves() {
+  const el = document.getElementById('view-shelves');
+  if (!state.storages.length) {
+    el.innerHTML = `<div style="text-align:center; padding:48px 24px; color:var(--color-text-secondary);">📦<br>収納場所がまだありません</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">${state.storages.map(s => {
+    const items = state.items.filter(i => i.storageId === s.id);
+    const allTags = [...new Set(items.flatMap(i => i.tags))].slice(0, 4);
+    return `<div class="storage-card" onclick="openShelf(${s.id})" style="background:white; border:0.5px solid #ccc; border-radius:12px; padding:14px; cursor:pointer; position:relative;">
+      <div style="font-size:28px; margin-bottom:8px;">${s.icon}</div>
+      <div style="font-size:14px; font-weight:500;">${s.name}</div>
+      ${s.num ? `<div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;">${s.num}</div>` : ''}
+      <div style="font-size:12px; color:var(--color-text-secondary);">${items.length}点</div>
+      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">${allTags.map(t => renderTag(t)).join('')}</div>
+      <div style="position:absolute; top:10px; right:10px; display:flex; gap:4px;">
+        <button onclick="event.stopPropagation(); editStorage(${s.id})" style="background:none; border:none; cursor:pointer;">✏️</button>
+        <button onclick="event.stopPropagation(); deleteStorage(${s.id})" style="background:none; border:none; cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function openShelf(id) {
+  state.currentShelfId = id;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  ['shelves','search','all-items'].forEach(n => document.getElementById('view-' + n).classList.remove('active'));
+  document.getElementById('view-shelf-detail').classList.add('active');
+  document.getElementById('addBtn').style.display = 'none';
+  state.currentView = 'shelf-detail';
+  renderShelfDetail();
+}
+
+function renderShelfDetail() {
+  const s = state.storages.find(x => x.id === state.currentShelfId);
+  if (!s) return;
+  const items = state.items.filter(i => i.storageId === s.id);
+  const el = document.getElementById('view-shelf-detail');
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <button onclick="switchView('shelves', document.querySelectorAll('.nav-btn')[0])" style="background:none; border:none; cursor:pointer; font-size:18px;">←</button>
+      <span style="font-size:24px">${s.icon}</span>
+      <div>
+        <div style="font-size:15px; font-weight:500;">${s.name}</div>
+        ${s.num ? `<div style="font-size:12px; color:gray;">${s.num}</div>` : ''}
+      </div>
+      <button class="btn primary" style="margin-left:auto;" onclick="openItemModal(null, ${s.id})">＋ モノを追加</button>
+    </div>
+    <div class="item-list">${items.map(item => createItemRowHtml(item, false)).join('')}</div>
+  `;
+}
+
+/* --- 検索ビュー（復元） --- */
+function renderSearch() {
+  const el = document.getElementById('view-search');
+  const allTags = [...new Set(state.items.flatMap(i => i.tags))];
+  el.innerHTML = `
+    <div class="search-bar" style="display:flex; gap:8px; margin-bottom:16px;">
+      <input type="text" id="searchInput" placeholder="名前・タグ・メモで検索..." oninput="doSearch()" style="flex:1; padding:8px; border-radius:8px; border:1px solid #ccc;" />
+    </div>
+    <div id="tagFilter" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
+      ${allTags.map(t => {
+        const isActive = activeTagFilters.has(t);
+        return `<button onclick="toggleTagFilter('${t}')" style="padding:4px 12px; border-radius:20px; font-size:12px; border:1px solid #ccc; cursor:pointer; ${isActive ? 'background:var(--c-teal-600); color:white;' : 'background:white;'}">${t}</button>`;
+      }).join('')}
+    </div>
+    <div id="searchResults"></div>`;
+  doSearch();
+}
+
+function toggleTagFilter(tag) {
+  if (activeTagFilters.has(tag)) activeTagFilters.delete(tag);
+  else activeTagFilters.add(tag);
+  renderSearch(); // ボタンの見た目を更新するため再描画
+}
+
+function doSearch() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const results = state.items.filter(item => {
+    const matchQ = !q || item.name.toLowerCase().includes(q)
+      || item.tags.some(t => t.toLowerCase().includes(q))
+      || item.note?.toLowerCase().includes(q);
+    const matchTag = activeTagFilters.size === 0
+      || [...activeTagFilters].every(t => item.tags.includes(t));
+    return matchQ && matchTag;
+  });
+  
+  const el = document.getElementById('searchResults');
+  if (!el) return;
+  el.innerHTML = `<div style="font-size:12px; color:gray; margin-bottom:12px;">${results.length}件見つかりました</div>` +
+    `<div class="item-list">${results.map(item => createItemRowHtml(item, true)).join('')}</div>`;
+}
+
+/* --- すべてのモノビュー --- */
+function renderAllItems() {
+  const el = document.getElementById('view-all-items');
+  el.innerHTML = `<div class="item-list">${state.items.map(item => createItemRowHtml(item, true)).join('')}</div>`;
+}
+
+/* --- データ操作・モーダル管理 --- */
+function handleAdd() {
+  if (state.currentView === 'shelves' || state.currentView === 'all-items') openStorageModal();
+  else openItemModal(null, state.currentShelfId);
+}
+
+// 収納場所の追加・編集
+function openStorageModal(id) {
+  state.editingStorageId = id || null;
+  const s = id ? state.storages.find(x => x.id === id) : null;
+  document.getElementById('storageModalTitle').textContent = id ? '収納場所を編集' : '収納場所を追加';
+  document.getElementById('storageName').value = s?.name || '';
+  document.getElementById('storageNum').value = s?.num || '';
+  state.selectedIcon = s?.icon || '📦';
+  
+  document.getElementById('iconSelect').innerHTML = ICONS.map(ic =>
+    `<div onclick="selectIcon('${ic}', this)" style="font-size:24px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:1px solid ${ic === state.selectedIcon ? 'var(--c-teal-600)' : '#ccc'}; border-radius:8px; cursor:pointer; background:${ic === state.selectedIcon ? 'var(--c-teal-50)' : 'transparent'};">${ic}</div>`
+  ).join('');
+  document.getElementById('storageModal').classList.add('open');
+}
+
+function selectIcon(ic, el) {
+  state.selectedIcon = ic;
+  Array.from(el.parentNode.children).forEach(e => {
+    e.style.borderColor = '#ccc'; e.style.background = 'transparent';
+  });
+  el.style.borderColor = 'var(--c-teal-600)'; el.style.background = 'var(--c-teal-50)';
+}
+
+function editStorage(id) { openStorageModal(id); }
+function deleteStorage(id) {
+  if (!confirm('この収納場所を削除しますか？（中のモノも削除されます）')) return;
+  state.storages = state.storages.filter(s => s.id !== id);
+  state.items = state.items.filter(i => i.storageId !== id);
+  renderShelves();
+}
+
+function saveStorage() {
+  const name = document.getElementById('storageName').value.trim();
+  if (!name) return alert('名前を入力してください');
+  const num = document.getElementById('storageNum').value.trim();
+  if (state.editingStorageId) {
+    const s = state.storages.find(x => x.id === state.editingStorageId);
+    Object.assign(s, { name, num, icon: state.selectedIcon });
+  } else {
+    state.storages.push({ id: state.nextStorageId++, icon: state.selectedIcon, name, num });
+  }
+  closeModal('storageModal');
+  renderShelves();
+}
+
+// モノの追加・編集
+function openItemModal(id, defaultStorageId) {
+  state.editingItemId = id || null;
+  state.pendingTags = [];
+  const item = id ? state.items.find(x => x.id === id) : null;
+  if (item) state.pendingTags = [...item.tags];
+  
+  document.getElementById('itemModalTitle').textContent = id ? 'モノを編集' : 'モノを追加';
+  document.getElementById('itemName').value = item?.name || '';
+  document.getElementById('itemNote').value = item?.note || '';
+  
+  const sel = document.getElementById('itemStorage');
+  sel.innerHTML = state.storages.map(s =>
+    `<option value="${s.id}" ${(item?.storageId || defaultStorageId) === s.id ? 'selected' : ''}>${s.icon} ${s.name}${s.num ? ' (' + s.num + ')' : ''}</option>`
+  ).join('');
+
+  // 画像プレビューの初期化
+  const preview = document.getElementById('imgPreview');
+  const fileInput = document.getElementById('itemImageFile');
+  fileInput.value = ''; 
+  currentImageData = item?.image || null;
+  
+  if (currentImageData) {
+    preview.src = currentImageData;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+
+  renderTagInput();
+  document.getElementById('itemModal').classList.add('open');
+}
 
 // 画像プレビュー処理
 function previewImage(input) {
@@ -91,98 +369,79 @@ function previewImage(input) {
       preview.style.display = 'block';
     }
     reader.readAsDataURL(file);
+  } else {
+    currentImageData = null;
+    preview.style.display = 'none';
   }
 }
 
-function switchView(v, btn) {
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-  document.getElementById('view-' + v).classList.add('active');
-  state.currentView = v;
-  if (v === 'shelves') renderShelves();
-  if (v === 'all-items') renderAllItems();
+// タグ入力処理
+function renderTagInput() {
+  const wrap = document.getElementById('tagInputWrap');
+  const inputHtml = `<input type="text" id="tagInput" placeholder="タグを入力..." onkeydown="handleTagKey(event)" style="border:none; outline:none; background:transparent; width:100%; margin-top:4px;" />`;
+  wrap.innerHTML = state.pendingTags.map(t => renderTag(t, true)).join('') + inputHtml;
 }
 
-function renderShelves() {
-  const el = document.getElementById('view-shelves');
-  el.innerHTML = `<div class="grid">${state.storages.map(s => `
-    <div class="storage-card" onclick="openShelf(${s.id})">
-      <div class="card-icon">${s.icon}</div>
-      <div class="card-name">${s.name}</div>
-      <div class="card-count">${state.items.filter(i => i.storageId === s.id).length}点</div>
-    </div>`).join('')}</div>`;
+function handleTagKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const v = e.target.value.trim().replace(/,/g, '');
+    if (v && !state.pendingTags.includes(v)) {
+      state.pendingTags.push(v);
+      renderTagInput();
+      document.getElementById('tagInput').focus();
+    } else {
+      e.target.value = '';
+    }
+  }
 }
 
-function openShelf(id) {
-  state.currentShelfId = id;
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-shelf-detail').classList.add('active');
-  renderShelfDetail();
+function removeTag(t) {
+  state.pendingTags = state.pendingTags.filter(x => x !== t);
+  renderTagInput();
 }
 
-function renderShelfDetail() {
-  const items = state.items.filter(i => i.storageId === state.currentShelfId);
-  const el = document.getElementById('view-shelf-detail');
-  el.innerHTML = `<button class="btn" onclick="switchView('shelves')">← 戻る</button>
-    <div class="item-list" style="margin-top:16px">${items.map(item => renderItemRow(item)).join('')}</div>`;
-}
-
-// アイテムの1行分をレンダリング（画像表示を追加）
-function renderItemRow(item) {
-  const s = state.storages.find(x => x.id === item.storageId);
-  return `
-    <div class="item-row">
-      ${item.image ? `<img src="${item.image}" class="item-img-thumb" />` : `<div class="item-img-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px">📦</div>`}
-      <div style="flex:1">
-        <div class="item-name">${item.name}</div>
-        ${s ? `<span class="location-badge">${s.name}</span>` : ''}
-        <div style="margin-top:4px">${item.tags.map(t => renderTag(t)).join('')}</div>
-      </div>
-      <button class="icon-btn" onclick="deleteItem(${item.id})">🗑️</button>
-    </div>`;
-}
-
-function renderAllItems() {
-  const el = document.getElementById('view-all-items');
-  el.innerHTML = `<div class="item-list">${state.items.map(item => renderItemRow(item)).join('')}</div>`;
-}
-
-function handleAdd() { openItemModal(); }
-
-function openItemModal() {
-  currentImageData = null;
-  document.getElementById('imgPreview').style.display = 'none';
-  document.getElementById('itemImageFile').value = '';
-  document.getElementById('itemName').value = '';
-  document.getElementById('itemNote').value = '';
-  const sel = document.getElementById('itemStorage');
-  sel.innerHTML = state.storages.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  document.getElementById('itemModal').classList.add('open');
+function editItem(id) { openItemModal(id, null); }
+function deleteItem(id) {
+  if (!confirm('このモノを削除しますか？')) return;
+  state.items = state.items.filter(i => i.id !== id);
+  if (state.currentView === 'shelf-detail') renderShelfDetail();
+  else if (state.currentView === 'all-items') renderAllItems();
+  else doSearch();
 }
 
 function saveItem() {
   const name = document.getElementById('itemName').value.trim();
   if (!name) return alert('名前を入力してください');
   const storageId = parseInt(document.getElementById('itemStorage').value);
+  const note = document.getElementById('itemNote').value.trim();
+  const extra = document.getElementById('tagInput')?.value.trim();
+  if (extra && !state.pendingTags.includes(extra)) state.pendingTags.push(extra);
   
-  state.items.push({
-    id: state.nextItemId++,
-    name,
-    storageId,
-    note: document.getElementById('itemNote').value,
-    tags: state.pendingTags,
-    image: currentImageData, // 画像データを保存
-    createdAt: Date.now()
-  });
+  if (state.editingItemId) {
+    const item = state.items.find(x => x.id === state.editingItemId);
+    Object.assign(item, { name, storageId, note, tags: state.pendingTags, image: currentImageData });
+  } else {
+    state.items.push({ id: state.nextItemId++, name, storageId, note, tags: state.pendingTags, image: currentImageData, createdAt: Date.now() });
+  }
   
   closeModal('itemModal');
-  switchView(state.currentView);
+  activeTagFilters = new Set(); // 検索フィルタをリセット
+  
+  if (state.currentView === 'shelf-detail') renderShelfDetail();
+  else if (state.currentView === 'all-items') renderAllItems();
+  else if (state.currentView === 'search') doSearch();
+  else renderShelves();
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function deleteItem(id) { if(confirm('削除しますか？')) { state.items = state.items.filter(i => i.id !== id); switchView(state.currentView); } }
 
+// モーダルの背景クリックで閉じる処理
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
+);
+
+// 初期表示
 renderShelves();
 </script>
 </body>
