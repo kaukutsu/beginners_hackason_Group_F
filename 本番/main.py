@@ -1,7 +1,7 @@
 import http.server
 
 #HTTPサーバー
-server_address = ('0.0.0.0', 8000)
+server_address = ('127.0.0.1', 8000)
 handler = http.server.SimpleHTTPRequestHandler
 httpd = http.server.HTTPServer(server_address, handler)
 
