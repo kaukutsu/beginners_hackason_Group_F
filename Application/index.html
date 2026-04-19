@@ -12,6 +12,7 @@
   <div id="topbar">
     <span>📦</span>
     <h1>モノの管理</h1>
+    <button class="btn" onclick="loadDataFromFile()" style="margin-left: auto;">📂 読込</button>
     <button class="btn primary" id="addBtn" onclick="handleAdd()">＋ 追加</button>
   </div>
   <div id="nav">
@@ -108,23 +109,93 @@ const TAG_COLORS = ['tag-teal','tag-purple','tag-amber','tag-coral','tag-blue','
 
 let currentImageData = null; 
 let activeTagFilters = new Set(); 
+let fileHandle = null; // ファイル保存先を保持する変数
 
+// 初期状態のデータ（空にしておき、読み込みで上書きされる前提）
 let state = {
   storages: [
     { id: 1, icon: '🗃️', name: 'リビング棚', num: 'A-1' },
-    { id: 2, icon: '📦', name: '押し入れ上段', num: 'B-1' },
-    { id: 3, icon: '👗', name: 'クローゼット', num: 'C-1' },
+    { id: 2, icon: '📦', name: '押し入れ上段', num: 'B-1' }
   ],
-  items: [
-    { id: 1, name: '冬用コート', storageId: 3, note: 'グレー色', tags: ['衣類','冬'], image: null, createdAt: Date.now() },
-    { id: 2, name: '電池（単3）', storageId: 1, note: '予備10本', tags: ['電気','消耗品'], image: null, createdAt: Date.now() },
-    { id: 3, name: '工具セット', storageId: 2, note: 'ドライバー等', tags: ['工具','DIY'], image: null, createdAt: Date.now() },
-  ],
-  nextStorageId: 4, nextItemId: 4,
+  items: [],
+  nextStorageId: 3, nextItemId: 1,
   editingStorageId: null, editingItemId: null,
   currentShelfId: null, currentView: 'shelves',
   pendingTags: [], selectedIcon: '📦',
 };
+
+// --- ファイル読み込み・保存機能 ---
+
+// ファイルを読み込んで復元する（ユーザー操作で発火）
+async function loadDataFromFile() {
+  try {
+    if (!window.showOpenFilePicker) {
+      alert("お使いのブラウザはローカルファイルの直接読み書きに対応していません。PC版のChromeやEdgeをご利用ください。");
+      return;
+    }
+
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+      multiple: false
+    });
+    
+    fileHandle = handle; // 読み込んだファイルのハンドルを保持（上書き用）
+    const file = await fileHandle.getFile();
+    const contents = await file.text();
+    const parsed = JSON.parse(contents);
+    
+    state = { ...state, ...parsed };
+    
+    // UI状態をリセットして再描画
+    state.currentView = 'shelves';
+    state.editingStorageId = null;
+    state.editingItemId = null;
+    state.currentShelfId = null;
+    state.pendingTags = [];
+    
+    switchView('shelves', document.querySelectorAll('.nav-btn')[0]);
+    alert("データを読み込みました。以降の変更はこのファイルに上書き保存されます。");
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error("読み込みエラー:", e);
+      alert("ファイルの読み込みに失敗しました。");
+    }
+  }
+}
+
+// 変更をファイルに保存する
+async function saveData() {
+  try {
+    if (!window.showSaveFilePicker) {
+      console.warn("File System Access API非対応ブラウザです");
+      return;
+    }
+
+    // fileHandleがない（初回保存）場合は、保存先ダイアログを出す
+    if (!fileHandle) {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: 'mono_management_data.json',
+        types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+      });
+    }
+
+    // 保持しているファイルハンドルに対して上書き書き込み
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(state));
+    await writable.close();
+    
+    console.log("上書き保存完了");
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error("保存エラー:", e);
+      alert("保存に失敗しました。");
+    } else {
+      // ユーザーが保存ダイアログをキャンセルした場合、fileHandleをリセット
+      fileHandle = null; 
+    }
+  }
+}
+
 
 function tagColor(tag) {
   let h = 0;
@@ -140,8 +211,6 @@ function renderTag(t, removable) {
   return `<span class="tag ${cls}" style="display:inline-flex; padding:2px 8px; border-radius:20px; font-size:11px; margin-top:4px; margin-right:4px;">${t}</span>`;
 }
 
-// アイテムの1行分を生成する共通関数
-// ダブルクリック（ondblclick）イベントを追加しています
 function createItemRowHtml(item, showLocation) {
   const s = state.storages.find(x => x.id === item.storageId);
   const imgHtml = item.image 
@@ -166,7 +235,6 @@ function createItemRowHtml(item, showLocation) {
     </div>`;
 }
 
-// 画面切り替え
 function switchView(v, btn) {
   if (btn) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -314,14 +382,18 @@ function selectIcon(ic, el) {
 }
 
 function editStorage(id) { openStorageModal(id); }
-function deleteStorage(id) {
+
+// asyncを追加して保存処理を待機
+async function deleteStorage(id) {
   if (!confirm('この収納場所を削除しますか？（中のモノも削除されます）')) return;
   state.storages = state.storages.filter(s => s.id !== id);
   state.items = state.items.filter(i => i.storageId !== id);
+  await saveData(); // 変更をファイルに保存
   renderShelves();
 }
 
-function saveStorage() {
+// asyncを追加して保存処理を待機
+async function saveStorage() {
   const name = document.getElementById('storageName').value.trim();
   if (!name) return alert('名前を入力してください');
   const num = document.getElementById('storageNum').value.trim();
@@ -331,6 +403,8 @@ function saveStorage() {
   } else {
     state.storages.push({ id: state.nextStorageId++, icon: state.selectedIcon, name, num });
   }
+  
+  await saveData(); // 変更をファイルに保存
   closeModal('storageModal');
   renderShelves();
 }
@@ -367,7 +441,7 @@ function openItemModal(id, defaultStorageId) {
   document.getElementById('itemModal').classList.add('open');
 }
 
-// 画像プレビュー処理（追加用）
+// 画像プレビュー処理
 function previewImage(input) {
   const file = input.files[0];
   const preview = document.getElementById('imgPreview');
@@ -385,7 +459,7 @@ function previewImage(input) {
   }
 }
 
-// 拡大プレビュー処理 (ダブルクリックで発火)
+// 拡大プレビュー処理
 function openLargePreview(id) {
   const item = state.items.find(x => x.id === id);
   if (!item) return;
@@ -432,15 +506,21 @@ function removeTag(t) {
 }
 
 function editItem(id) { openItemModal(id, null); }
-function deleteItem(id) {
+
+// asyncを追加して保存処理を待機
+async function deleteItem(id) {
   if (!confirm('このモノを削除しますか？')) return;
   state.items = state.items.filter(i => i.id !== id);
+  
+  await saveData(); // 変更をファイルに保存
+
   if (state.currentView === 'shelf-detail') renderShelfDetail();
   else if (state.currentView === 'all-items') renderAllItems();
   else doSearch();
 }
 
-function saveItem() {
+// asyncを追加して保存処理を待機
+async function saveItem() {
   const name = document.getElementById('itemName').value.trim();
   if (!name) return alert('名前を入力してください');
   const storageId = parseInt(document.getElementById('itemStorage').value);
@@ -454,6 +534,8 @@ function saveItem() {
   } else {
     state.items.push({ id: state.nextItemId++, name, storageId, note, tags: state.pendingTags, image: currentImageData, createdAt: Date.now() });
   }
+  
+  await saveData(); // 変更をファイルに保存
   
   closeModal('itemModal');
   activeTagFilters = new Set(); 
